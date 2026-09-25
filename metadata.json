@@ -1,0 +1,8 @@
+{
+  "name": "Remix Mobile",
+  "description": "Modern device health monitor, hardware sensor toolbox, and daily mobile productivity hub.pc set device",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
