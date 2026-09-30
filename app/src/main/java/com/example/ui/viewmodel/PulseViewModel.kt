@@ -6,6 +6,8 @@ import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.PulseDatabase
+import com.example.data.gemini.GeminiSearchService
+import com.example.data.gemini.GroundingSource
 import com.example.data.model.QuickNote
 import com.example.data.model.TaskItem
 import com.example.data.repository.PulseRepository
@@ -36,12 +38,61 @@ enum class TaskFilter {
     ALL, PENDING, COMPLETED, HIGH_PRIORITY
 }
 
+data class TechSearchState(
+    val query: String = "",
+    val answer: String = "",
+    val searchQueries: List<String> = emptyList(),
+    val sources: List<GroundingSource> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
 class PulseViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = PulseDatabase.getDatabase(application, viewModelScope)
     private val repository = PulseRepository(database.pulseDao())
     val telemetryManager = DeviceTelemetryManager(application)
     val toolboxManager = ToolboxManager(application, viewModelScope)
+    private val geminiSearchService = GeminiSearchService()
+
+    // Gemini Google Search Grounding State
+    private val _techSearchState = MutableStateFlow(TechSearchState())
+    val techSearchState: StateFlow<TechSearchState> = _techSearchState.asStateFlow()
+
+    fun performTechSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return
+        _techSearchState.value = _techSearchState.value.copy(
+            query = trimmed,
+            isLoading = true,
+            error = null
+        )
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = geminiSearchService.searchWithGoogleGrounding(trimmed)
+            result.fold(
+                onSuccess = { res ->
+                    _techSearchState.value = TechSearchState(
+                        query = res.query,
+                        answer = res.answer,
+                        searchQueries = res.searchQueries,
+                        sources = res.sources,
+                        isLoading = false,
+                        error = null
+                    )
+                },
+                onFailure = { err ->
+                    _techSearchState.value = _techSearchState.value.copy(
+                        isLoading = false,
+                        error = err.message ?: "Failed to perform search"
+                    )
+                }
+            )
+        }
+    }
+
+    fun clearTechSearch() {
+        _techSearchState.value = TechSearchState()
+    }
 
     // Current Screen Navigation
     private val _currentTab = MutableStateFlow(NavigationTab.OVERVIEW)

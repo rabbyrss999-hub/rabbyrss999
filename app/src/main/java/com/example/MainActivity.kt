@@ -23,9 +23,13 @@ import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Laptop
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Info
@@ -58,7 +62,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.AddNoteDialog
 import com.example.ui.components.AddTaskDialog
+import com.example.ui.components.PcDownloadGuideDialog
 import com.example.ui.components.PixelTestFullscreenOverlay
+import com.example.ui.components.TechSearchDialog
+import com.example.ui.components.WebPlayerDialog
 import com.example.ui.screens.DeviceSpecsScreen
 import com.example.ui.screens.OverviewScreen
 import com.example.ui.screens.TasksNotesScreen
@@ -88,11 +95,16 @@ class MainActivity : ComponentActivity() {
 fun MobilePulseApp(viewModel: PulseViewModel) {
     val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
     val battery by viewModel.batteryTelemetry.collectAsStateWithLifecycle()
+    val network by viewModel.networkTelemetry.collectAsStateWithLifecycle()
+    val techSearchState by viewModel.techSearchState.collectAsStateWithLifecycle()
     val isPixelTestActive by viewModel.isPixelTestActive.collectAsStateWithLifecycle()
     val pixelColorIndex by viewModel.pixelColorIndex.collectAsStateWithLifecycle()
 
     var showAddTaskDialog by remember { mutableStateOf(false) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
+    var showPcDownloadDialog by remember { mutableStateOf(false) }
+    var showTechSearchDialog by remember { mutableStateOf(false) }
+    var showWebPlayerDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -118,6 +130,59 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
                     }
                 },
                 actions = {
+                    // Web & Video Player (Chrome Open) Button
+                    IconButton(
+                        onClick = { showWebPlayerDialog = true },
+                        modifier = Modifier.testTag("btn_top_web_player")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = "Open Web & Video Player",
+                            tint = CyanPrimary
+                        )
+                    }
+
+                    // Live Tech Search Button (Google Grounding)
+                    IconButton(
+                        onClick = { showTechSearchDialog = true },
+                        modifier = Modifier.testTag("btn_top_tech_search")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TravelExplore,
+                            contentDescription = "Live Google Tech Search",
+                            tint = CyanPrimary
+                        )
+                    }
+
+                    // Prominent PC Download Button
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = CyanPrimary,
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .clickable { showPcDownloadDialog = true }
+                            .testTag("btn_top_pc_download")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Download Guide",
+                                tint = Color.Black,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "ডাউনলোড",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.Black
+                            )
+                        }
+                    }
+
                     // Battery indicator pill
                     Surface(
                         shape = RoundedCornerShape(14.dp),
@@ -256,10 +321,15 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
                     NavigationTab.OVERVIEW -> OverviewScreen(
                         viewModel = viewModel,
                         onNavigateTab = { viewModel.selectTab(it) },
-                        onOpenAddTask = { showAddTaskDialog = true }
+                        onOpenAddTask = { showAddTaskDialog = true },
+                        onOpenPcGuide = { showPcDownloadDialog = true },
+                        onOpenTechSearch = { showTechSearchDialog = true },
+                        onOpenWebPlayer = { showWebPlayerDialog = true }
                     )
                     NavigationTab.TOOLBOX -> ToolboxScreen(
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        onOpenTechSearch = { showTechSearchDialog = true },
+                        onOpenWebPlayer = { showWebPlayerDialog = true }
                     )
                     NavigationTab.TASKS_NOTES -> TasksNotesScreen(
                         viewModel = viewModel,
@@ -267,7 +337,8 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
                         onOpenAddNote = { showAddNoteDialog = true }
                     )
                     NavigationTab.DEVICE_SPECS -> DeviceSpecsScreen(
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        onOpenPcGuide = { showPcDownloadDialog = true }
                     )
                 }
             }
@@ -291,6 +362,32 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
             onConfirm = { title, content, tag, colorHex ->
                 viewModel.addNote(title, content, tag, colorHex)
             }
+        )
+    }
+
+    // PC Download & Emulator Guide Dialog
+    if (showPcDownloadDialog) {
+        PcDownloadGuideDialog(
+            onDismiss = { showPcDownloadDialog = false },
+            ipAddress = network.ipAddress
+        )
+    }
+
+    // Live Tech Search Dialog (Google Search Grounding via Gemini 3.5 Flash)
+    if (showTechSearchDialog) {
+        TechSearchDialog(
+            searchState = techSearchState,
+            onSearch = { viewModel.performTechSearch(it) },
+            onDismiss = { showTechSearchDialog = false },
+            onClear = { viewModel.clearTechSearch() }
+        )
+    }
+
+    // Web & Video Stream Player (Chrome / In-App Player)
+    if (showWebPlayerDialog) {
+        WebPlayerDialog(
+            initialUrl = "https://pfxplayer.online/v/31d20a56-5c2c-4e02-a6a2-198dc3582124",
+            onDismiss = { showWebPlayerDialog = false }
         )
     }
 

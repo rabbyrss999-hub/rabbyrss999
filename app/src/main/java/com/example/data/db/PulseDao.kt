@@ -27,6 +27,12 @@ interface PulseDao {
     @Query("DELETE FROM tasks WHERE id = :taskId")
     suspend fun deleteTaskById(taskId: Long)
 
+    @Query("SELECT * FROM tasks ORDER BY id ASC")
+    suspend fun getAllTasksList(): List<TaskItem>
+
+    @Query("DELETE FROM tasks")
+    suspend fun clearAllTasks()
+
     // Quick Notes
     @Query("SELECT * FROM quick_notes ORDER BY updatedAt DESC")
     fun getAllNotes(): Flow<List<QuickNote>>
@@ -42,4 +48,10 @@ interface PulseDao {
 
     @Query("DELETE FROM quick_notes WHERE id = :noteId")
     suspend fun deleteNoteById(noteId: Long)
+
+    @Query("SELECT * FROM quick_notes ORDER BY id ASC")
+    suspend fun getAllNotesList(): List<QuickNote>
+
+    @Query("DELETE FROM quick_notes")
+    suspend fun clearAllNotes()
 }

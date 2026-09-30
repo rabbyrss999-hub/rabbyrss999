@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.BatterySaver
 import androidx.compose.material.icons.filled.DeveloperMode
 import androidx.compose.material.icons.filled.DisplaySettings
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Laptop
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
@@ -58,7 +60,8 @@ import com.example.ui.viewmodel.PulseViewModel
 
 @Composable
 fun DeviceSpecsScreen(
-    viewModel: PulseViewModel
+    viewModel: PulseViewModel,
+    onOpenPcGuide: () -> Unit = {}
 ) {
     val hardware by viewModel.hardwareInfo.collectAsStateWithLifecycle()
     val battery by viewModel.batteryTelemetry.collectAsStateWithLifecycle()
@@ -77,6 +80,66 @@ fun DeviceSpecsScreen(
             bottom = 32.dp
         )
     ) {
+        // PC & Phone Guide Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenPcGuide() }
+                    .testTag("card_pc_specs_guide"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = CyanPrimary.copy(alpha = 0.08f)
+                ),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.35f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CyanPrimary.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Laptop,
+                            contentDescription = null,
+                            tint = CyanPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "PC Download & Emulator Guide",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "পিসিতে নামিয়ে BlueStacks বা Android Studio তে চালানোর পূর্ণ নির্দেশিকা",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = "Open Guide",
+                        tint = CyanPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
         // Quick System Settings Shortcuts
         item {
             Card(

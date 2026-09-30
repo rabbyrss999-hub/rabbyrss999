@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.NoteAlt
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.AlertDialog
@@ -35,6 +36,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -86,7 +88,8 @@ import java.util.Locale
 fun TasksNotesScreen(
     viewModel: PulseViewModel,
     onOpenAddTask: () -> Unit,
-    onOpenAddNote: () -> Unit
+    onOpenAddNote: () -> Unit,
+    onOpenBackup: () -> Unit = {}
 ) {
     var selectedSectionIndex by remember { mutableIntStateOf(0) } // 0 = Tasks, 1 = Notes
     val tasks by viewModel.allTasks.collectAsStateWithLifecycle()
@@ -281,17 +284,35 @@ fun TasksNotesScreen(
                                 )
                             }
 
-                            Button(
-                                onClick = onOpenAddTask,
-                                modifier = Modifier.testTag("btn_new_task")
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Add",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("New Task", fontSize = 12.sp)
+                                FilledTonalButton(
+                                    onClick = onOpenBackup,
+                                    modifier = Modifier.testTag("btn_backup_restore_tasks")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Save,
+                                        contentDescription = "Backup Data",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Backup", fontSize = 12.sp)
+                                }
+
+                                Button(
+                                    onClick = onOpenAddTask,
+                                    modifier = Modifier.testTag("btn_new_task")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Add",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("New Task", fontSize = 12.sp)
+                                }
                             }
                         }
                     }
@@ -358,17 +379,35 @@ fun TasksNotesScreen(
                             letterSpacing = 1.sp
                         )
 
-                        Button(
-                            onClick = onOpenAddNote,
-                            modifier = Modifier.testTag("btn_new_note")
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("New Note", fontSize = 12.sp)
+                            FilledTonalButton(
+                                onClick = onOpenBackup,
+                                modifier = Modifier.testTag("btn_backup_restore_notes")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Save,
+                                    contentDescription = "Backup Data",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Backup", fontSize = 12.sp)
+                            }
+
+                            Button(
+                                onClick = onOpenAddNote,
+                                modifier = Modifier.testTag("btn_new_note")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Note", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
