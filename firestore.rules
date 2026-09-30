@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+        data.wallpaperId is string &&
+        data.wallpaperId.size() > 0 &&
+        data.wallpaperId.size() <= 64;
+    }
+
+    function isValidTask(data, userId) {
+      return data.userId == userId &&
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 256 &&
+        data.isCompleted is bool;
+    }
+
+    function isValidNote(data, userId) {
+      return data.userId == userId &&
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 256 &&
+        data.content is string;
+    }
+
+    function isValidShortcut(data, userId) {
+      return data.userId == userId &&
+        data.name is string &&
+        data.name.size() > 0 &&
+        data.name.size() <= 128 &&
+        data.urlOrPackage is string &&
+        data.urlOrPackage.size() > 0;
+    }
+
+    // User document and settings
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUserProfile(request.resource.data, userId);
+      allow delete: if isOwner(userId);
+
+      // Tasks subcollection
+      match /tasks/{taskId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidTask(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      // Notes subcollection
+      match /notes/{noteId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidNote(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      // Shortcuts subcollection
+      match /shortcuts/{shortcutId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidShortcut(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
