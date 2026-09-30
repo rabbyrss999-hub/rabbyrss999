@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import android.widget.Toast
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,8 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
@@ -59,7 +56,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -425,53 +421,16 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
         )
     }
 
-    val firebaseUser by viewModel.currentFirebaseUser.collectAsStateWithLifecycle()
-    val isCloudSyncing by viewModel.isCloudSyncing.collectAsStateWithLifecycle()
-    val context = androidx.compose.ui.platform.LocalContext.current
-
     // Wallpaper & Permanent Data Protection Dialog
     if (showWallpaperDataDialog) {
         WallpaperDataDialog(
             currentWallpaperId = currentWallpaperId,
             currentWallpaperDim = currentWallpaperDim,
-            firebaseUser = firebaseUser,
-            isCloudSyncing = isCloudSyncing,
             onSelectWallpaper = { viewModel.setWallpaper(it) },
             onUpdateWallpaperDim = { viewModel.setWallpaperDim(it) },
             onExportBackup = { viewModel.exportDataBackupJson() },
             onRestoreBackup = { viewModel.restoreDataBackupJson(it) },
             onAddShortcut = { name, url, type -> viewModel.addShortcut(name, url, type) },
-            onSignInWithGoogle = {
-                viewModel.signInWithGoogle(context) { success, msg ->
-                    if (success) {
-                        Toast.makeText(context, "Google Sign-In সফল হয়েছে! Firebase-এ সিঙ্ক হচ্ছে।", Toast.LENGTH_SHORT).show()
-                    } else if (msg != null) {
-                        Toast.makeText(context, "Google Sign-In: $msg", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
-            onSignOut = {
-                viewModel.signOutFromGoogle()
-                Toast.makeText(context, "Google Sign-Out সম্পন্ন হয়েছে।", Toast.LENGTH_SHORT).show()
-            },
-            onSyncToCloud = {
-                viewModel.syncToFirebaseCloud { success, err ->
-                    if (success) {
-                        Toast.makeText(context, "Firebase ক্লাউড ব্যাকআপ সফল হয়েছে!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "সিঙ্ক ব্যর্থ: $err", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
-            onRestoreFromCloud = {
-                viewModel.restoreFromFirebaseCloud { success, err ->
-                    if (success) {
-                        Toast.makeText(context, "Firebase ক্লাউড থেকে ডাটা রিস্টোর হয়েছে!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "রিস্টোর ব্যর্থ: $err", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
             onDismiss = { showWallpaperDataDialog = false }
         )
     }

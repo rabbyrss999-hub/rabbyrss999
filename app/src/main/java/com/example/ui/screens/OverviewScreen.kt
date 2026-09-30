@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,9 +32,6 @@ import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -66,7 +62,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -701,102 +696,6 @@ fun OverviewScreen(
                             Icon(Icons.Default.Palette, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("ওয়ালপেপার বদলান", fontSize = 11.sp)
-                        }
-                    }
-
-                    // Firebase Firestore Cloud Sync Quick Banner
-                    val firebaseUser by viewModel.currentFirebaseUser.collectAsStateWithLifecycle()
-                    val isCloudSyncing by viewModel.isCloudSyncing.collectAsStateWithLifecycle()
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = CyanPrimary.copy(alpha = 0.08f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.3f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (firebaseUser != null) Icons.Default.CloudDone else Icons.Default.Cloud,
-                                contentDescription = null,
-                                tint = if (firebaseUser != null) AccentGreen else CyanPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (firebaseUser != null) "Firebase Cloud Sync (সংযুক্ত)" else "Firebase Cloud Backup",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (firebaseUser != null)
-                                        (firebaseUser?.displayName ?: firebaseUser?.email ?: "Google Account")
-                                    else
-                                        "Google অ্যাকাউন্ট দিয়ে ক্লাউডে ডাটা ব্যাকআপ রাখুন",
-                                    fontSize = 10.sp,
-                                    color = if (firebaseUser != null) AccentGreen else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (firebaseUser == null) {
-                                Button(
-                                    onClick = {
-                                        viewModel.signInWithGoogle(context) { success, msg ->
-                                            if (success) {
-                                                Toast.makeText(context, "Google Sign-In সফল হয়েছে!", Toast.LENGTH_SHORT).show()
-                                            } else if (msg != null) {
-                                                Toast.makeText(context, "Sign-In: $msg", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .height(32.dp)
-                                        .testTag("btn_overview_quick_signin"),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = CyanPrimary,
-                                        contentColor = Color.Black
-                                    )
-                                ) {
-                                    Text("Sign In", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            } else {
-                                IconButton(
-                                    onClick = {
-                                        viewModel.syncToFirebaseCloud { success, err ->
-                                            if (success) {
-                                                Toast.makeText(context, "Firebase ক্লাউড ব্যাকআপ সম্পন্ন!", Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                Toast.makeText(context, "সিঙ্ক ব্যর্থ: $err", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .testTag("btn_overview_quick_sync")
-                                ) {
-                                    if (isCloudSyncing) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            color = CyanPrimary,
-                                            strokeWidth = 2.dp
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Default.CloudSync,
-                                            contentDescription = "Sync to Cloud",
-                                            tint = CyanPrimary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }
