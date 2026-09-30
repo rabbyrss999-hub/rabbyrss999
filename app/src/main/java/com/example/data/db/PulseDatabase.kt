@@ -4,20 +4,44 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.data.model.AppShortcutItem
 import com.example.data.model.QuickNote
 import com.example.data.model.TaskItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [TaskItem::class, QuickNote::class], version = 1, exportSchema = false)
+@Database(
+    entities = [TaskItem::class, QuickNote::class, AppShortcutItem::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class PulseDatabase : RoomDatabase() {
     abstract fun pulseDao(): PulseDao
 
     companion object {
         @Volatile
         private var INSTANCE: PulseDatabase? = null
+
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `app_shortcuts` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `urlOrPackage` TEXT NOT NULL,
+                        `iconType` TEXT NOT NULL,
+                        `category` TEXT NOT NULL,
+                        `isPinned` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
 
         fun getDatabase(context: Context, scope: CoroutineScope): PulseDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -26,6 +50,7 @@ abstract class PulseDatabase : RoomDatabase() {
                     PulseDatabase::class.java,
                     "mobile_pulse_database"
                 )
+                    .addMigrations(MIGRATION_1_2)
                     .addCallback(PulseDatabaseCallback(scope))
                     .build()
                 INSTANCE = instance
@@ -42,6 +67,19 @@ abstract class PulseDatabase : RoomDatabase() {
             INSTANCE?.let { database ->
                 scope.launch(Dispatchers.IO) {
                     populateInitialData(database.pulseDao())
+                }
+            }
+        }
+
+        override fun onOpen(db: SupportSQLiteDatabase) {
+            super.onOpen(db)
+            INSTANCE?.let { database ->
+                scope.launch(Dispatchers.IO) {
+                    // Safety check: ensure baseline shortcuts exist if table was just created
+                    val existing = database.pulseDao().getAllShortcutsList()
+                    if (existing.isEmpty()) {
+                        populateInitialShortcuts(database.pulseDao())
+                    }
                 }
             }
         }
@@ -108,6 +146,56 @@ abstract class PulseDatabase : RoomDatabase() {
                 )
             )
             dao.insertNotes(initialNotes)
+
+            populateInitialShortcuts(dao)
+        }
+
+        private suspend fun populateInitialShortcuts(dao: PulseDao) {
+            val initialShortcuts = listOf(
+                AppShortcutItem(
+                    name = "PFX Video Player",
+                    urlOrPackage = "https://pfxplayer.online/v/31d20a56-5c2c-4e02-a6a2-198dc3582124",
+                    iconType = "player",
+                    category = "Media",
+                    isPinned = true
+                ),
+                AppShortcutItem(
+                    name = "Google Chrome",
+                    urlOrPackage = "com.android.chrome",
+                    iconType = "chrome",
+                    category = "Web",
+                    isPinned = true
+                ),
+                AppShortcutItem(
+                    name = "System Settings",
+                    urlOrPackage = "android.settings.SETTINGS",
+                    iconType = "system",
+                    category = "System",
+                    isPinned = true
+                ),
+                AppShortcutItem(
+                    name = "Flashlight & Torch",
+                    urlOrPackage = "action:torch",
+                    iconType = "tool",
+                    category = "Utilities",
+                    isPinned = true
+                ),
+                AppShortcutItem(
+                    name = "Decibel Sound Meter",
+                    urlOrPackage = "action:sound",
+                    iconType = "tool",
+                    category = "Utilities",
+                    isPinned = false
+                ),
+                AppShortcutItem(
+                    name = "Tech Intel Search",
+                    urlOrPackage = "action:search",
+                    iconType = "tool",
+                    category = "AI & Web",
+                    isPinned = true
+                )
+            )
+            dao.insertShortcuts(initialShortcuts)
         }
     }
 }

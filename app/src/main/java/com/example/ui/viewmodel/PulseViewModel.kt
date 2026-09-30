@@ -8,8 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.db.PulseDatabase
 import com.example.data.gemini.GeminiSearchService
 import com.example.data.gemini.GroundingSource
+import com.example.data.model.AppShortcutItem
 import com.example.data.model.QuickNote
 import com.example.data.model.TaskItem
+import com.example.data.preferences.AppPreferencesManager
 import com.example.data.repository.PulseRepository
 import com.example.telemetry.BatteryTelemetry
 import com.example.telemetry.DeviceHardwareInfo
@@ -29,6 +31,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 
 enum class NavigationTab {
     OVERVIEW, TOOLBOX, TASKS_NOTES, DEVICE_SPECS
@@ -51,9 +56,199 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = PulseDatabase.getDatabase(application, viewModelScope)
     private val repository = PulseRepository(database.pulseDao())
+    val preferencesManager = AppPreferencesManager(application)
     val telemetryManager = DeviceTelemetryManager(application)
     val toolboxManager = ToolboxManager(application, viewModelScope)
     private val geminiSearchService = GeminiSearchService()
+
+    // Persistent Wallpaper & Preferences
+    val currentWallpaperId: StateFlow<String> = preferencesManager.wallpaperIdFlow
+    val currentWallpaperDim: StateFlow<Float> = preferencesManager.wallpaperDimFlow
+    val lastBackupTime: StateFlow<Long> = preferencesManager.lastBackupTimeFlow
+    val isDataProtectionEnabled: StateFlow<Boolean> = preferencesManager.dataProtectionEnabledFlow
+
+    private val dataVaultFile = File(application.filesDir, "pulse_permanent_data_vault.json")
+
+    fun triggerAutoVaultSave() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val backupJson = exportDataBackupJson()
+                dataVaultFile.writeText(backupJson)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun toggleDataProtection() {
+        val current = preferencesManager.isDataProtectionEnabled()
+        preferencesManager.setDataProtectionEnabled(!current)
+        toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+        triggerAutoVaultSave()
+    }
+
+    fun setWallpaper(wallpaperId: String) {
+        preferencesManager.setWallpaperId(wallpaperId)
+        toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.TICK)
+        triggerAutoVaultSave()
+    }
+
+    fun setWallpaperDim(dim: Float) {
+        preferencesManager.setWallpaperDim(dim)
+        triggerAutoVaultSave()
+    }
+
+    // App & Link Shortcuts (Persistent in Room)
+    val allShortcuts: StateFlow<List<AppShortcutItem>> = repository.allShortcuts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addShortcut(name: String, urlOrPackage: String, iconType: String = "web", category: String = "Favorite") {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.insertShortcut(
+                AppShortcutItem(
+                    name = name.trim(),
+                    urlOrPackage = urlOrPackage.trim(),
+                    iconType = iconType,
+                    category = category,
+                    isPinned = true
+                )
+            )
+            toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+            triggerAutoVaultSave()
+        }
+    }
+
+    fun deleteShortcut(shortcutId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteShortcut(shortcutId)
+            toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+            triggerAutoVaultSave()
+        }
+    }
+
+    fun toggleShortcutPin(shortcut: AppShortcutItem) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateShortcut(shortcut.copy(isPinned = !shortcut.isPinned))
+            toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.TICK)
+            triggerAutoVaultSave()
+        }
+    }
+
+    // Full Backup & Restore System (Ensures Zero Data Loss)
+    suspend fun exportDataBackupJson(): String {
+        val tasks = repository.getAllTasksList()
+        val notes = repository.getAllNotesList()
+        val shortcuts = repository.getAllShortcutsList()
+        val wallpaperId = preferencesManager.getWallpaperId()
+
+        val root = JSONObject()
+        root.put("version", 2)
+        root.put("exportedAt", System.currentTimeMillis())
+        root.put("wallpaperId", wallpaperId)
+
+        val tasksArray = JSONArray()
+        for (t in tasks) {
+            val obj = JSONObject()
+            obj.put("title", t.title)
+            obj.put("description", t.description)
+            obj.put("category", t.category)
+            obj.put("priority", t.priority)
+            obj.put("isCompleted", t.isCompleted)
+            tasksArray.put(obj)
+        }
+        root.put("tasks", tasksArray)
+
+        val notesArray = JSONArray()
+        for (n in notes) {
+            val obj = JSONObject()
+            obj.put("title", n.title)
+            obj.put("content", n.content)
+            obj.put("tag", n.tag)
+            obj.put("colorHex", n.colorHex)
+            notesArray.put(obj)
+        }
+        root.put("notes", notesArray)
+
+        val shortcutsArray = JSONArray()
+        for (s in shortcuts) {
+            val obj = JSONObject()
+            obj.put("name", s.name)
+            obj.put("urlOrPackage", s.urlOrPackage)
+            obj.put("iconType", s.iconType)
+            obj.put("category", s.category)
+            obj.put("isPinned", s.isPinned)
+            shortcutsArray.put(obj)
+        }
+        root.put("shortcuts", shortcutsArray)
+
+        preferencesManager.updateBackupTimestamp()
+        return root.toString(2)
+    }
+
+    suspend fun restoreDataBackupJson(jsonString: String): Boolean {
+        return try {
+            val root = JSONObject(jsonString)
+            val wallpaperId = root.optString("wallpaperId")
+            if (wallpaperId.isNotBlank()) {
+                preferencesManager.setWallpaperId(wallpaperId)
+            }
+
+            val tasksList = mutableListOf<TaskItem>()
+            val tasksArray = root.optJSONArray("tasks")
+            if (tasksArray != null) {
+                for (i in 0 until tasksArray.length()) {
+                    val obj = tasksArray.getJSONObject(i)
+                    tasksList.add(
+                        TaskItem(
+                            title = obj.getString("title"),
+                            description = obj.optString("description", ""),
+                            category = obj.optString("category", "General"),
+                            priority = obj.optString("priority", "Medium"),
+                            isCompleted = obj.optBoolean("isCompleted", false)
+                        )
+                    )
+                }
+            }
+
+            val notesList = mutableListOf<QuickNote>()
+            val notesArray = root.optJSONArray("notes")
+            if (notesArray != null) {
+                for (i in 0 until notesArray.length()) {
+                    val obj = notesArray.getJSONObject(i)
+                    notesList.add(
+                        QuickNote(
+                            title = obj.getString("title"),
+                            content = obj.optString("content", ""),
+                            tag = obj.optString("tag", "General"),
+                            colorHex = obj.optString("colorHex", "#06B6D4")
+                        )
+                    )
+                }
+            }
+
+            val shortcutsList = mutableListOf<AppShortcutItem>()
+            val shortcutsArray = root.optJSONArray("shortcuts")
+            if (shortcutsArray != null) {
+                for (i in 0 until shortcutsArray.length()) {
+                    val obj = shortcutsArray.getJSONObject(i)
+                    shortcutsList.add(
+                        AppShortcutItem(
+                            name = obj.getString("name"),
+                            urlOrPackage = obj.getString("urlOrPackage"),
+                            iconType = obj.optString("iconType", "web"),
+                            category = obj.optString("category", "Favorite"),
+                            isPinned = obj.optBoolean("isPinned", true)
+                        )
+                    )
+                }
+            }
+
+            repository.restoreData(tasksList, notesList, shortcutsList, overwrite = true)
+            preferencesManager.updateBackupTimestamp()
+            toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.DOUBLE_CLICK)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     // Gemini Google Search Grounding State
     private val _techSearchState = MutableStateFlow(TechSearchState())
@@ -151,11 +346,41 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
     val pixelColorIndex: StateFlow<Int> = _pixelColorIndex.asStateFlow()
 
     init {
+        // Auto-check and restore from permanent disk vault on startup
+        viewModelScope.launch(Dispatchers.IO) {
+            delay(400) // allow DB callbacks to settle
+            try {
+                if (dataVaultFile.exists()) {
+                    val currentTasks = repository.getAllTasksList()
+                    val currentShortcuts = repository.getAllShortcutsList()
+                    if (currentTasks.isEmpty() || currentShortcuts.isEmpty()) {
+                        val json = dataVaultFile.readText()
+                        restoreDataBackupJson(json)
+                    }
+                } else {
+                    triggerAutoVaultSave()
+                }
+            } catch (_: Exception) {}
+        }
+
         // Periodic refresh for telemetry (storage, ram, network, uptime)
         viewModelScope.launch(Dispatchers.IO) {
             while (isActive) {
                 refreshTelemetry()
                 delay(3000)
+            }
+        }
+    }
+
+    fun savePermanentDataSnapshotNow(onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val backupJson = exportDataBackupJson()
+                dataVaultFile.writeText(backupJson)
+                toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.DOUBLE_CLICK)
+                onResult(true)
+            } catch (_: Exception) {
+                onResult(false)
             }
         }
     }
@@ -188,6 +413,7 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
             toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+            triggerAutoVaultSave()
         }
     }
 
@@ -199,6 +425,7 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
             )
             repository.updateTask(updated)
             toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.TICK)
+            triggerAutoVaultSave()
         }
     }
 
@@ -206,6 +433,7 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTask(taskId)
             toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+            triggerAutoVaultSave()
         }
     }
 
@@ -221,6 +449,7 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
             toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+            triggerAutoVaultSave()
         }
     }
 
@@ -228,6 +457,7 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteNote(noteId)
             toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+            triggerAutoVaultSave()
         }
     }
 

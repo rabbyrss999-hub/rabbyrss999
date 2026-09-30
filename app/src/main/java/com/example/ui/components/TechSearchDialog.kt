@@ -25,11 +25,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TravelExplore
@@ -509,7 +509,7 @@ fun TechSearchDialog(
                                             }
 
                                             Icon(
-                                                imageVector = Icons.Default.OpenInNew,
+                                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                                 contentDescription = "Open Source",
                                                 tint = CyanPrimary,
                                                 modifier = Modifier.size(16.dp)

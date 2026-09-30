@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.TravelExplore
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Info
@@ -65,6 +66,7 @@ import com.example.ui.components.AddTaskDialog
 import com.example.ui.components.PcDownloadGuideDialog
 import com.example.ui.components.PixelTestFullscreenOverlay
 import com.example.ui.components.TechSearchDialog
+import com.example.ui.components.WallpaperDataDialog
 import com.example.ui.components.WebPlayerDialog
 import com.example.ui.screens.DeviceSpecsScreen
 import com.example.ui.screens.OverviewScreen
@@ -73,6 +75,7 @@ import com.example.ui.screens.ToolboxScreen
 import com.example.ui.theme.AccentGreen
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.WallpaperRegistry
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.PulseViewModel
 
@@ -100,11 +103,18 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
     val isPixelTestActive by viewModel.isPixelTestActive.collectAsStateWithLifecycle()
     val pixelColorIndex by viewModel.pixelColorIndex.collectAsStateWithLifecycle()
 
+    val currentWallpaperId by viewModel.currentWallpaperId.collectAsStateWithLifecycle()
+    val currentWallpaperDim by viewModel.currentWallpaperDim.collectAsStateWithLifecycle()
+    val activeWallpaper = remember(currentWallpaperId) {
+        WallpaperRegistry.getWallpaperById(currentWallpaperId)
+    }
+
     var showAddTaskDialog by remember { mutableStateOf(false) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var showPcDownloadDialog by remember { mutableStateOf(false) }
     var showTechSearchDialog by remember { mutableStateOf(false) }
     var showWebPlayerDialog by remember { mutableStateOf(false) }
+    var showWallpaperDataDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -130,6 +140,18 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
                     }
                 },
                 actions = {
+                    // Wallpaper & Data Protection Button
+                    IconButton(
+                        onClick = { showWallpaperDataDialog = true },
+                        modifier = Modifier.testTag("btn_top_wallpaper_data")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Wallpaper,
+                            contentDescription = "Wallpaper & Data Protection",
+                            tint = CyanPrimary
+                        )
+                    }
+
                     // Web & Video Player (Chrome Open) Button
                     IconButton(
                         onClick = { showWebPlayerDialog = true },
@@ -311,8 +333,15 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(activeWallpaper.gradientBrush)
         ) {
+            // Background dimming layer for optimal readability
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 1.0f - currentWallpaperDim))
+            )
+
             Crossfade(
                 targetState = currentTab,
                 label = "screen_crossfade"
@@ -324,7 +353,8 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
                         onOpenAddTask = { showAddTaskDialog = true },
                         onOpenPcGuide = { showPcDownloadDialog = true },
                         onOpenTechSearch = { showTechSearchDialog = true },
-                        onOpenWebPlayer = { showWebPlayerDialog = true }
+                        onOpenWebPlayer = { showWebPlayerDialog = true },
+                        onOpenWallpaperData = { showWallpaperDataDialog = true }
                     )
                     NavigationTab.TOOLBOX -> ToolboxScreen(
                         viewModel = viewModel,
@@ -388,6 +418,20 @@ fun MobilePulseApp(viewModel: PulseViewModel) {
         WebPlayerDialog(
             initialUrl = "https://pfxplayer.online/v/31d20a56-5c2c-4e02-a6a2-198dc3582124",
             onDismiss = { showWebPlayerDialog = false }
+        )
+    }
+
+    // Wallpaper & Permanent Data Protection Dialog
+    if (showWallpaperDataDialog) {
+        WallpaperDataDialog(
+            currentWallpaperId = currentWallpaperId,
+            currentWallpaperDim = currentWallpaperDim,
+            onSelectWallpaper = { viewModel.setWallpaper(it) },
+            onUpdateWallpaperDim = { viewModel.setWallpaperDim(it) },
+            onExportBackup = { viewModel.exportDataBackupJson() },
+            onRestoreBackup = { viewModel.restoreDataBackupJson(it) },
+            onAddShortcut = { name, url, type -> viewModel.addShortcut(name, url, type) },
+            onDismiss = { showWallpaperDataDialog = false }
         )
     }
 

@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.example.data.model.AppShortcutItem
 import com.example.data.model.QuickNote
 import com.example.data.model.TaskItem
 import kotlinx.coroutines.flow.Flow
@@ -54,4 +55,26 @@ interface PulseDao {
 
     @Query("DELETE FROM quick_notes")
     suspend fun clearAllNotes()
+
+    // App & Link Shortcuts
+    @Query("SELECT * FROM app_shortcuts ORDER BY isPinned DESC, createdAt ASC")
+    fun getAllShortcuts(): Flow<List<AppShortcutItem>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShortcut(shortcut: AppShortcutItem): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShortcuts(shortcuts: List<AppShortcutItem>)
+
+    @Update
+    suspend fun updateShortcut(shortcut: AppShortcutItem)
+
+    @Query("DELETE FROM app_shortcuts WHERE id = :id")
+    suspend fun deleteShortcutById(id: Long)
+
+    @Query("SELECT * FROM app_shortcuts ORDER BY id ASC")
+    suspend fun getAllShortcutsList(): List<AppShortcutItem>
+
+    @Query("DELETE FROM app_shortcuts")
+    suspend fun clearAllShortcuts()
 }

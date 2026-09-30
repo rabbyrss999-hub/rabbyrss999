@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -8,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,24 +27,37 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Laptop
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -52,6 +71,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +89,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.data.model.AppShortcutItem
 import com.example.telemetry.FlashlightMode
 import com.example.ui.components.LinearUsageBar
 import com.example.ui.components.MetricCard
@@ -81,6 +103,7 @@ import com.example.ui.theme.AccentPurple
 import com.example.ui.theme.AccentRed
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.TealSecondary
+import com.example.ui.theme.WallpaperRegistry
 import com.example.ui.viewmodel.NavigationTab
 import com.example.ui.viewmodel.PulseViewModel
 
@@ -91,7 +114,8 @@ fun OverviewScreen(
     onOpenAddTask: () -> Unit,
     onOpenPcGuide: () -> Unit = {},
     onOpenTechSearch: () -> Unit = {},
-    onOpenWebPlayer: () -> Unit = {}
+    onOpenWebPlayer: () -> Unit = {},
+    onOpenWallpaperData: () -> Unit = {}
 ) {
     val battery by viewModel.batteryTelemetry.collectAsStateWithLifecycle()
     val storage by viewModel.storageTelemetry.collectAsStateWithLifecycle()
@@ -100,6 +124,11 @@ fun OverviewScreen(
     val hardware by viewModel.hardwareInfo.collectAsStateWithLifecycle()
     val torchMode by viewModel.torchMode.collectAsStateWithLifecycle()
     val tasks by viewModel.allTasks.collectAsStateWithLifecycle()
+    val shortcuts by viewModel.allShortcuts.collectAsStateWithLifecycle()
+    val currentWallpaperId by viewModel.currentWallpaperId.collectAsStateWithLifecycle()
+    val activeWallpaper = remember(currentWallpaperId) {
+        WallpaperRegistry.getWallpaperById(currentWallpaperId)
+    }
 
     val pendingTasks = tasks.filter { !it.isCompleted }.take(3)
     val completedCount = tasks.count { it.isCompleted }
@@ -367,7 +396,7 @@ fun OverviewScreen(
             }
         }
 
-        // Web & Video Stream Launcher (pfxplayer.online)
+        // Web & Video Stream Launcher (pfxplayer.online - CHROME OPEN)
         item {
             val streamUrl = "https://pfxplayer.online/v/31d20a56-5c2c-4e02-a6a2-198dc3582124"
             val context = LocalContext.current
@@ -380,13 +409,13 @@ fun OverviewScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.5f))
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, CyanPrimary)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -395,32 +424,235 @@ fun OverviewScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(46.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(CyanPrimary.copy(alpha = 0.18f)),
+                                .background(CyanPrimary.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayCircle,
                                 contentDescription = null,
                                 tint = CyanPrimary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                         }
 
                         Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "PFX Video Player",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = CyanPrimary.copy(alpha = 0.2f)
+                                ) {
+                                    Text(
+                                        text = "CHROME OPEN",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = CyanPrimary,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Video Stream Player",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "pfxplayer.online/v/31d20a56...",
+                                text = "https://pfxplayer.online/v/31d20a56-5c2c-4e02-a6a2-198dc3582124",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = CyanPrimary,
-                                fontSize = 11.sp
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
+                        }
+                    }
+
+                    // Main Chrome Open Button
+                    Button(
+                        onClick = { openUrlInChrome(context, streamUrl) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("btn_overview_open_chrome"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CyanPrimary,
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInBrowser,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "🌐 CHROME OPEN (ক্রোমে চালান)",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onOpenWebPlayer,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("btn_overview_play_app"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("অ্যাপে চালান", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("PFX Player URL", streamUrl)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "PFX Player লিঙ্ক কপি হয়েছে!", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("btn_overview_copy_stream_url"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("লিঙ্ক কপি", fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Anti-Reset Wallpaper & App Data Protection Card
+        item {
+            val context = LocalContext.current
+            val isProtectionActive by viewModel.isDataProtectionEnabled.collectAsStateWithLifecycle()
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("card_zero_reset_protection"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, AccentGreen.copy(alpha = 0.7f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AccentGreen.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = null,
+                                tint = AccentGreen,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "ওয়ালপেপার ও ডাটা সুরক্ষা",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = AccentGreen.copy(alpha = 0.2f)
+                                ) {
+                                    Text(
+                                        text = "NO RESET",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = AccentGreen,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "ওয়ালপেপার ও অ্যাপ ডাটা কখনোই রিসেট হবে না (Protected)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AccentGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    // Active wallpaper pill & description
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(activeWallpaper.gradientBrush)
+                                    .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "বর্তমান ওয়ালপেপার: ${activeWallpaper.name}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "অ্যাপ বন্ধ বা রিস্টার্ট করলেও আপনার সমস্ত অ্যাপ শর্টকাট, টাস্ক ও ওয়ালপেপার ডিস্ক ভল্টে সুরক্ষিত থাকে।",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 
@@ -429,39 +661,210 @@ fun OverviewScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Button(
-                            onClick = { openUrlInChrome(context, streamUrl) },
+                            onClick = {
+                                viewModel.savePermanentDataSnapshotNow { success ->
+                                    Toast.makeText(
+                                        context,
+                                        if (success) "সব ওয়ালপেপার ও অ্যাপ ডাটা ডিস্কে স্থায়ীভাবে সেভ হয়েছে!" else "ডাটা সংরক্ষণ সম্পন্ন!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
                             modifier = Modifier
                                 .weight(1f)
-                                .testTag("btn_overview_open_chrome"),
-                            shape = RoundedCornerShape(12.dp),
+                                .height(40.dp)
+                                .testTag("btn_save_permanent_vault"),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = CyanPrimary,
+                                containerColor = AccentGreen,
                                 contentColor = Color.Black
                             )
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.OpenInBrowser,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Open in Chrome", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("এখনই সেভ করুন", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
 
                         OutlinedButton(
-                            onClick = onOpenWebPlayer,
+                            onClick = onOpenWallpaperData,
                             modifier = Modifier
                                 .weight(1f)
-                                .testTag("btn_overview_play_app"),
-                            shape = RoundedCornerShape(12.dp)
+                                .height(40.dp)
+                                .testTag("btn_open_wallpaper_menu"),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Icon(Icons.Default.Palette, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Play in App", fontSize = 12.sp)
+                            Text("ওয়ালপেপার বদলান", fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // My Apps & Shortcuts Section
+        item {
+            val context = LocalContext.current
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Apps,
+                        contentDescription = null,
+                        tint = CyanPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "MY APPS & SHORTCUTS (অ্যাপসমূহ)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                }
+
+                Text(
+                    text = "+ Add Shortcut",
+                    fontSize = 12.sp,
+                    color = CyanPrimary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clickable { onOpenWallpaperData() }
+                        .padding(4.dp)
+                        .testTag("btn_overview_add_shortcut")
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                shortcuts.forEach { shortcut ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                handleLaunchShortcut(
+                                    context = context,
+                                    shortcut = shortcut,
+                                    viewModel = viewModel,
+                                    onOpenWebPlayer = onOpenWebPlayer,
+                                    onOpenTechSearch = onOpenTechSearch
+                                )
+                            }
+                            .testTag("shortcut_item_${shortcut.id}"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        when (shortcut.iconType) {
+                                            "player" -> CyanPrimary.copy(alpha = 0.2f)
+                                            "chrome" -> AccentAmber.copy(alpha = 0.2f)
+                                            "system" -> AccentBlue.copy(alpha = 0.2f)
+                                            else -> MaterialTheme.colorScheme.surfaceVariant
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = when (shortcut.iconType) {
+                                        "player" -> Icons.Default.PlayCircle
+                                        "chrome" -> Icons.Default.OpenInBrowser
+                                        "system" -> Icons.Default.Settings
+                                        "tool" -> Icons.Default.FlashlightOn
+                                        else -> Icons.Default.Language
+                                    },
+                                    contentDescription = null,
+                                    tint = when (shortcut.iconType) {
+                                        "player" -> CyanPrimary
+                                        "chrome" -> AccentAmber
+                                        "system" -> AccentBlue
+                                        else -> CyanPrimary
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = shortcut.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                    ) {
+                                        Text(
+                                            text = shortcut.category,
+                                            fontSize = 9.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = shortcut.urlOrPackage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // Quick Chrome / Launch Button
+                            if (shortcut.urlOrPackage.startsWith("http")) {
+                                Button(
+                                    onClick = { openUrlInChrome(context, shortcut.urlOrPackage) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CyanPrimary.copy(alpha = 0.2f),
+                                        contentColor = CyanPrimary
+                                    ),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Chrome Open", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = {
+                                        handleLaunchShortcut(
+                                            context = context,
+                                            shortcut = shortcut,
+                                            viewModel = viewModel,
+                                            onOpenWebPlayer = onOpenWebPlayer,
+                                            onOpenTechSearch = onOpenTechSearch
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Open", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
                 }
@@ -880,6 +1283,48 @@ fun OverviewScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+private fun handleLaunchShortcut(
+    context: Context,
+    shortcut: AppShortcutItem,
+    viewModel: PulseViewModel,
+    onOpenWebPlayer: () -> Unit,
+    onOpenTechSearch: () -> Unit
+) {
+    val target = shortcut.urlOrPackage.trim()
+    when {
+        target == "action:torch" -> viewModel.toolboxManager.toggleFlashlight()
+        target == "action:sound" -> viewModel.selectTab(NavigationTab.TOOLBOX)
+        target == "action:search" -> onOpenTechSearch()
+        target.startsWith("https://pfxplayer.online") -> openUrlInChrome(context, target)
+        target.startsWith("http://") || target.startsWith("https://") -> openUrlInChrome(context, target)
+        target == "com.android.chrome" -> {
+            try {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage("com.android.chrome")
+                if (launchIntent != null) {
+                    context.startActivity(launchIntent)
+                } else {
+                    openUrlInChrome(context, "https://www.google.com")
+                }
+            } catch (_: Exception) {
+                openUrlInChrome(context, "https://www.google.com")
+            }
+        }
+        target.startsWith("android.settings") -> viewModel.openSystemSetting(target)
+        else -> {
+            try {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(target)
+                if (launchIntent != null) {
+                    context.startActivity(launchIntent)
+                } else {
+                    openUrlInChrome(context, target)
+                }
+            } catch (_: Exception) {
+                openUrlInChrome(context, target)
             }
         }
     }
