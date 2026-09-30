@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with persistent wallpaper settings and cloud sync info",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Google User ID" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "email": { "type": "string", "description": "User email address" },
+        "wallpaperId": { "type": "string", "description": "Active wallpaper identifier" },
+        "wallpaperDim": { "type": "number", "description": "Wallpaper background opacity (0.2 to 1.0)" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update" }
+      },
+      "required": ["userId", "wallpaperId"]
+    },
+    "CloudTask": {
+      "title": "CloudTask",
+      "description": "User device maintenance checklist task item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique task ID" },
+        "userId": { "type": "string", "description": "Owner Google User ID" },
+        "title": { "type": "string", "description": "Task title" },
+        "description": { "type": "string", "description": "Task description" },
+        "category": { "type": "string", "description": "Task category" },
+        "priority": { "type": "string", "description": "Task priority (Low, Medium, High)" },
+        "isCompleted": { "type": "boolean", "description": "Completion state" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "userId", "title", "isCompleted"]
+    },
+    "CloudNote": {
+      "title": "CloudNote",
+      "description": "User quick technical note item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique note ID" },
+        "userId": { "type": "string", "description": "Owner Google User ID" },
+        "title": { "type": "string", "description": "Note title" },
+        "content": { "type": "string", "description": "Note content" },
+        "tag": { "type": "string", "description": "Category tag" },
+        "colorHex": { "type": "string", "description": "Hex color code" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "userId", "title", "content"]
+    },
+    "CloudShortcut": {
+      "title": "CloudShortcut",
+      "description": "User custom app or website link shortcut",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique shortcut ID" },
+        "userId": { "type": "string", "description": "Owner Google User ID" },
+        "name": { "type": "string", "description": "App or shortcut name" },
+        "urlOrPackage": { "type": "string", "description": "Target URL or Android package name" },
+        "iconType": { "type": "string", "description": "Icon type identifier" },
+        "category": { "type": "string", "description": "Category label" },
+        "isPinned": { "type": "boolean", "description": "Whether pinned to top" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["id", "userId", "name", "urlOrPackage"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User settings and profile document"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/CloudTask" },
+      "description": "User personal maintenance tasks subcollection"
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/CloudNote" },
+      "description": "User quick notes subcollection"
+    },
+    "/users/{userId}/shortcuts/{shortcutId}": {
+      "schema": { "$ref": "#/entities/CloudShortcut" },
+      "description": "User app and link shortcuts subcollection"
+    }
+  }
+}

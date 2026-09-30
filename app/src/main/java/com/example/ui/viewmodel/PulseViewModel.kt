@@ -1,11 +1,13 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.PulseDatabase
+import com.example.data.firebase.FirebaseSyncManager
 import com.example.data.gemini.GeminiSearchService
 import com.example.data.gemini.GroundingSource
 import com.example.data.model.AppShortcutItem
@@ -13,6 +15,7 @@ import com.example.data.model.QuickNote
 import com.example.data.model.TaskItem
 import com.example.data.preferences.AppPreferencesManager
 import com.example.data.repository.PulseRepository
+import com.google.firebase.auth.FirebaseUser
 import com.example.telemetry.BatteryTelemetry
 import com.example.telemetry.DeviceHardwareInfo
 import com.example.telemetry.DeviceTelemetryManager
@@ -60,6 +63,85 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
     val telemetryManager = DeviceTelemetryManager(application)
     val toolboxManager = ToolboxManager(application, viewModelScope)
     private val geminiSearchService = GeminiSearchService()
+    val firebaseSyncManager = FirebaseSyncManager(application)
+
+    // Firebase Cloud Auth & Sync States
+    val currentFirebaseUser: StateFlow<FirebaseUser?> = firebaseSyncManager.currentUser
+    val isCloudSyncing: StateFlow<Boolean> = firebaseSyncManager.isSyncing
+    val lastCloudSyncTime: StateFlow<Long> = firebaseSyncManager.lastCloudSyncTime
+
+    fun signInWithGoogle(context: Context, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            val result = firebaseSyncManager.signInWithGoogle(context)
+            result.fold(
+                onSuccess = { user ->
+                    toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.DOUBLE_CLICK)
+                    onResult(true, user.displayName ?: user.email)
+                    syncToFirebaseCloud()
+                },
+                onFailure = { err ->
+                    onResult(false, err.message)
+                }
+            )
+        }
+    }
+
+    fun signOutFromGoogle() {
+        firebaseSyncManager.signOut()
+        toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+    }
+
+    fun syncToFirebaseCloud(onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val tasks = repository.getAllTasksList()
+            val notes = repository.getAllNotesList()
+            val shortcuts = repository.getAllShortcutsList()
+            val wpId = preferencesManager.getWallpaperId()
+            val wpDim = preferencesManager.getWallpaperDim()
+
+            val result = firebaseSyncManager.syncFullBackupToCloud(
+                wallpaperId = wpId,
+                wallpaperDim = wpDim,
+                tasks = tasks,
+                notes = notes,
+                shortcuts = shortcuts
+            )
+            result.fold(
+                onSuccess = {
+                    toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.CLICK)
+                    onResult(true, null)
+                },
+                onFailure = { err ->
+                    onResult(false, err.message)
+                }
+            )
+        }
+    }
+
+    fun restoreFromFirebaseCloud(onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = firebaseSyncManager.pullAllFromCloud()
+            result.fold(
+                onSuccess = { payload ->
+                    if (payload.wallpaperId != null) {
+                        preferencesManager.setWallpaperId(payload.wallpaperId)
+                    }
+                    if (payload.wallpaperDim != null) {
+                        preferencesManager.setWallpaperDim(payload.wallpaperDim)
+                    }
+                    if (payload.tasks.isNotEmpty() || payload.notes.isNotEmpty() || payload.shortcuts.isNotEmpty()) {
+                        repository.restoreData(payload.tasks, payload.notes, payload.shortcuts, overwrite = true)
+                    }
+                    triggerAutoVaultSave()
+                    toolboxManager.triggerHaptic(ToolboxManager.HapticPattern.DOUBLE_CLICK)
+                    onResult(true, null)
+                },
+                onFailure = { err ->
+                    onResult(false, err.message)
+                }
+            )
+        }
+    }
 
     // Persistent Wallpaper & Preferences
     val currentWallpaperId: StateFlow<String> = preferencesManager.wallpaperIdFlow
@@ -498,5 +580,6 @@ class PulseViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         toolboxManager.cleanup()
+        firebaseSyncManager.cleanup()
     }
 }

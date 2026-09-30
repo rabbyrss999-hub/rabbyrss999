@@ -29,14 +29,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Security
@@ -47,6 +53,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -89,6 +96,7 @@ import com.example.ui.theme.AccentGreen
 import com.example.ui.theme.CyanPrimary
 import com.example.ui.theme.WallpaperRegistry
 import com.example.ui.theme.WallpaperTheme
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -98,11 +106,17 @@ import kotlinx.coroutines.withContext
 fun WallpaperDataDialog(
     currentWallpaperId: String,
     currentWallpaperDim: Float,
+    firebaseUser: FirebaseUser? = null,
+    isCloudSyncing: Boolean = false,
     onSelectWallpaper: (String) -> Unit,
     onUpdateWallpaperDim: (Float) -> Unit,
     onExportBackup: suspend () -> String,
     onRestoreBackup: suspend (String) -> Boolean,
     onAddShortcut: (name: String, url: String, type: String) -> Unit,
+    onSignInWithGoogle: () -> Unit = {},
+    onSignOut: () -> Unit = {},
+    onSyncToCloud: () -> Unit = {},
+    onRestoreFromCloud: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -496,6 +510,131 @@ fun WallpaperDataDialog(
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
+                                }
+                            }
+                        }
+
+                        // Firebase Firestore Cloud Sync Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("card_firebase_cloud_sync"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CyanPrimary.copy(alpha = 0.5f))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(CyanPrimary.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (firebaseUser != null) Icons.Default.CloudDone else Icons.Default.Cloud,
+                                            contentDescription = null,
+                                            tint = if (firebaseUser != null) AccentGreen else CyanPrimary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Firebase Firestore Cloud Sync",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = if (firebaseUser != null)
+                                                "সংযুক্ত: ${firebaseUser.displayName ?: firebaseUser.email}"
+                                            else
+                                                "ক্লাউডে ডাটা সিঙ্ক করতে Google অ্যাকাউন্ট দিয়ে সাইন-ইন করুন",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontSize = 11.sp,
+                                            color = if (firebaseUser != null) AccentGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                if (firebaseUser == null) {
+                                    Button(
+                                        onClick = onSignInWithGoogle,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(44.dp)
+                                            .testTag("btn_firebase_google_signin"),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = CyanPrimary,
+                                            contentColor = Color.Black
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Sign in with Google (ক্লাউড সিঙ্ক)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = onSyncToCloud,
+                                            enabled = !isCloudSyncing,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(40.dp)
+                                                .testTag("btn_firebase_sync_now"),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = CyanPrimary,
+                                                contentColor = Color.Black
+                                            )
+                                        ) {
+                                            if (isCloudSyncing) {
+                                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                                            } else {
+                                                Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Sync to Cloud", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                            }
+                                        }
+
+                                        OutlinedButton(
+                                            onClick = onRestoreFromCloud,
+                                            enabled = !isCloudSyncing,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(40.dp)
+                                                .testTag("btn_firebase_restore_cloud"),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Icon(Icons.Default.Cloud, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Pull Cloud", fontSize = 11.sp)
+                                        }
+
+                                        IconButton(
+                                            onClick = onSignOut,
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign Out", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                 }
                             }
                         }
